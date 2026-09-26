@@ -11,6 +11,7 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import org.slf4j.Logger;
@@ -98,7 +99,7 @@ public final class VoiceMusicFabric implements ModInitializer {
         source.sendSystemMessage(line);
     }
 
-    private static Component button(String label, String action) {
+    private static MutableComponent button(String label, String action) {
         return Component.literal("[" + label + "]").withStyle(Style.EMPTY.withClickEvent(new ClickEvent.RunCommand("/music " + action)));
     }
 }
