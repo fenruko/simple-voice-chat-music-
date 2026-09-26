@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       live_source_smoke:
-        description: 'Fetch a public YouTube video and verify Lavaplayer decodes audio (network-dependent)'
+        description: 'Try real YouTube and SoundCloud sources and verify Lavaplayer decodes audio (network-dependent)'
         required: true
         type: boolean
         default: false
@@ -28,7 +28,12 @@ jobs:
         run: bash .github/scripts/gradle-ci.sh tests :core:test
       - name: Live YouTube audio-source smoke test
         if: (github.event_name == 'workflow_dispatch' && inputs.live_source_smoke) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[live-source-smoke]'))
-        run: bash .github/scripts/gradle-ci.sh source-smoke :core:sourceSmokeTest -PsourceSmokeUrl=https://www.youtube.com/watch?v=BaW_jenozKc
+        continue-on-error: true
+        run: bash .github/scripts/gradle-ci.sh youtube-source-smoke :core:sourceSmokeTest -PsourceSmokeUrl=https://www.youtube.com/watch?v=BaW_jenozKc
+      - name: Live SoundCloud audio-source smoke test
+        if: (github.event_name == 'workflow_dispatch' && inputs.live_source_smoke) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[live-source-smoke]'))
+        continue-on-error: true
+        run: bash .github/scripts/gradle-ci.sh soundcloud-source-smoke :core:sourceSmokeTest -PsourceSmokeUrl=https://soundcloud.com/ikson/bluesky
       - name: Build server jars
         id: build
         if: ${{ !cancelled() }}
