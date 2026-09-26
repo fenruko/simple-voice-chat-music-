@@ -42,9 +42,19 @@ jobs:
               assert 'main: dev.arena.voicemusic.paper.VoiceMusicPaper' in descriptor
               assert 'depend: [voicechat]' in descriptor
           PY
-      - uses: actions/upload-artifact@v4
+      - name: Upload server JARs
+        if: success()
+        uses: actions/upload-artifact@v4
         with:
           name: voice-music-server-jars
           path: |
-            fabric/build/libs/voice-music-fabric-*.jar
+            fabric/build/libs/voice-music-fabric-0.1.0-SNAPSHOT.jar
             paper/build/libs/voice-music-paper-0.1.0-SNAPSHOT.jar
+          if-no-files-found: error
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voice-music-diagnostics
+          path: .ci-logs/*.log
+          if-no-files-found: ignore
