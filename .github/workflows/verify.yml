@@ -3,6 +3,12 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      live_source_smoke:
+        description: 'Fetch a public YouTube video and verify Lavaplayer decodes audio (network-dependent)'
+        required: true
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -20,6 +26,9 @@ jobs:
           gradle-version: '9.6.0'
       - name: Unit tests
         run: bash .github/scripts/gradle-ci.sh tests :core:test
+      - name: Live YouTube audio-source smoke test
+        if: github.event_name == 'workflow_dispatch' && inputs.live_source_smoke
+        run: bash .github/scripts/gradle-ci.sh source-smoke :core:sourceSmokeTest -PsourceSmokeUrl=https://www.youtube.com/watch?v=BaW_jenozKc
       - name: Build server jars
         id: build
         if: ${{ !cancelled() }}

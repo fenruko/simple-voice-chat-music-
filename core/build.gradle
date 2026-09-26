@@ -27,3 +27,11 @@ dependencies {
 }
 
 tasks.withType(Test).configureEach { useJUnitPlatform() }
+
+tasks.register('sourceSmokeTest', JavaExec) {
+    group = 'verification'
+    description = 'Resolves a real media URL and decodes a PCM frame; requires internet access.'
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'dev.arena.voicemusic.audio.AudioSourceSmoke'
+    args(providers.gradleProperty('sourceSmokeUrl').getOrElse('https://www.youtube.com/watch?v=BaW_jenozKc'))
+}
