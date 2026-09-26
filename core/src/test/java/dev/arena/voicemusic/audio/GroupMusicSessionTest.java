@@ -3,6 +3,7 @@ package dev.arena.voicemusic.audio;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import de.maxhenkel.voicechat.api.Group;
+import de.maxhenkel.voicechat.api.ServerPlayer;
 import de.maxhenkel.voicechat.api.VoicechatConnection;
 import de.maxhenkel.voicechat.api.VoicechatServerApi;
 import de.maxhenkel.voicechat.api.audiochannel.StaticAudioChannel;
@@ -96,7 +97,9 @@ class GroupMusicSessionTest {
 
     private static VoicechatConnection connection(UUID playerId, Group group) {
         var connection = mock(VoicechatConnection.class);
-        when(connection.getPlayerUuid()).thenReturn(playerId);
+        ServerPlayer player = mock(ServerPlayer.class);
+        when(player.getUuid()).thenReturn(playerId);
+        when(connection.getPlayer()).thenReturn(player);
         when(connection.getGroup()).thenReturn(group);
         when(connection.isConnected()).thenReturn(true);
         return connection;

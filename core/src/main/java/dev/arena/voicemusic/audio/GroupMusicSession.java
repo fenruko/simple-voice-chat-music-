@@ -104,14 +104,14 @@ public final class GroupMusicSession implements AutoCloseable {
         if (closed || connection == null || !connection.isConnected()) return;
         Group current = connection.getGroup();
         if (current == null || !groupId.equals(current.getId())) return;
-        UUID playerId = connection.getPlayerUuid();
+        UUID playerId = connection.getPlayer().getUuid();
         if (members.putIfAbsent(playerId, connection) == null) { channel.addTarget(connection); lastMembershipChangeNanos = System.nanoTime(); }
     }
 
     public void memberLeft(VoicechatConnection connection) {
         if (connection == null) return;
         lock.lock();
-        try { removeMember(connection.getPlayerUuid()); }
+        try { removeMember(connection.getPlayer().getUuid()); }
         finally { lock.unlock(); }
     }
 
