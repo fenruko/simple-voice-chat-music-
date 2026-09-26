@@ -29,11 +29,11 @@ jobs:
       - name: Live YouTube audio-source smoke test
         if: (github.event_name == 'workflow_dispatch' && inputs.live_source_smoke) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[live-source-smoke]'))
         continue-on-error: true
-        run: bash .github/scripts/gradle-ci.sh youtube-source-smoke :core:sourceSmokeTest -PsourceSmokeUrl=https://www.youtube.com/watch?v=BaW_jenozKc
+        run: bash .github/scripts/gradle-ci.sh youtube-source-smoke :core:sourceSmokeTest -PsourceSmokeUrl=https://www.youtube.com/watch?v=dQw4w9WgXcQ
       - name: Live SoundCloud audio-source smoke test
         if: (github.event_name == 'workflow_dispatch' && inputs.live_source_smoke) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[live-source-smoke]'))
         continue-on-error: true
-        run: bash .github/scripts/gradle-ci.sh soundcloud-source-smoke :core:sourceSmokeTest -PsourceSmokeUrl=https://soundcloud.com/ikson/bluesky
+        run: bash .github/scripts/gradle-ci.sh soundcloud-source-smoke :core:sourceSmokeTest -PsourceSmokeUrl=https://soundcloud.com/joakimkarud/dizzy
       - name: Build server jars
         id: build
         if: ${{ !cancelled() }}
