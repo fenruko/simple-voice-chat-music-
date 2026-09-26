@@ -5,4 +5,5 @@ run/
 .idea/
 *.iml
 .DS_Store
+ci-logs/
 .ci-logs/

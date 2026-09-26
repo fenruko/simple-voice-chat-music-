@@ -18,7 +18,7 @@ dependencies {
     }
     implementation "dev.lavalink.youtube:v2:${youtube_source_version}"
     implementation 'com.google.code.gson:gson:2.13.2'
-    testRuntimeOnly "de.maxhenkel.voicechat:voicechat-api:${voicechat_api_version}"
+    testImplementation "de.maxhenkel.voicechat:voicechat-api:${voicechat_api_version}"
     testImplementation platform('org.junit:junit-bom:5.13.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testImplementation 'org.mockito:mockito-core:5.20.0'
