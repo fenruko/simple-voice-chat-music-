@@ -14,7 +14,7 @@ dependencies {
     implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
     implementation "de.maxhenkel.voicechat:voicechat-api:${voicechat_api_version}"
-    modRuntimeOnly "de.maxhenkel.voicechat:voicechat-api:${voicechat_api_version}:fabric-stub"
+    runtimeOnly "de.maxhenkel.voicechat:voicechat-api:${voicechat_api_version}:fabric-stub"
     implementation project(':core')
     include project(':core')
     include("dev.arbjerg:lavaplayer:${lavaplayer_version}") {
@@ -22,7 +22,7 @@ dependencies {
     }
     include "dev.lavalink.youtube:v2:${youtube_source_version}"
     include 'com.google.code.gson:gson:2.13.2'
-    modRuntimeOnly "maven.modrinth:simple-voice-chat:fabric-2.6.23+26.3"
+    runtimeOnly "maven.modrinth:simple-voice-chat:fabric-2.6.23+26.3"
 }
 
 processResources {
