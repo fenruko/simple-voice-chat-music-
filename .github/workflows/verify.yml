@@ -19,10 +19,13 @@ jobs:
         with:
           gradle-version: '9.6.0'
       - name: Unit tests
-        run: gradle :core:test
+        run: bash .github/scripts/gradle-ci.sh tests :core:test
       - name: Build server jars
-        run: gradle :fabric:build :paper:build
+        id: build
+        if: ${{ !cancelled() }}
+        run: bash .github/scripts/gradle-ci.sh build :fabric:build :paper:build
       - name: Verify Fabric metadata and Paper descriptor
+        if: steps.build.outcome == 'success'
         run: |
           python3 - <<'PY'
           import json, pathlib, zipfile
