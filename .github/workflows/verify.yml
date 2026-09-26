@@ -35,9 +35,9 @@ jobs:
             paper = pathlib.Path('paper/build/libs/voice-music-paper-0.1.0-SNAPSHOT.jar')
             for jar in (fabric, paper):
                 assert jar.is_file(), f'missing JAR: {jar}'
-              size = jar.stat().st_size
-              assert size > 16_000, f'unexpectedly small JAR: {jar} ({size} bytes)'
-              print(f'::notice title=Built server JAR::{jar}: {size:,} bytes')
+                size = jar.stat().st_size
+                assert size > 16_000, f'unexpectedly small JAR: {jar} ({size} bytes)'
+                print(f'::notice title=Built server JAR::{jar}: {size:,} bytes')
                 with zipfile.ZipFile(jar) as archive:
                     assert archive.testzip() is None, f'CRC error in {jar}'
                 digest = hashlib.sha256(jar.read_bytes()).hexdigest()
