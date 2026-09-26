@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "voice_music",
+  "version": "${version}",
+  "name": "Voice Music",
+  "description": "Group music streaming through Simple Voice Chat.",
+  "environment": "server",
+  "entrypoints": {
+    "main": ["dev.arena.voicemusic.fabric.VoiceMusicFabric"],
+    "voicechat": ["dev.arena.voicemusic.fabric.FabricVoicePlugin"]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "=${minecraft_version}",
+    "java": ">=25",
+    "fabric-api": "*",
+    "voicechat_api": ">=${voicechat_api_version}"
+  }
+}

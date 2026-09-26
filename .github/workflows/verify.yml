@@ -1,0 +1,105 @@
+name: Verify
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      live_source_smoke:
+        description: 'Try real YouTube and SoundCloud sources and verify Lavaplayer decodes audio (network-dependent)'
+        required: true
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - uses: gradle/actions/setup-gradle@v5
+        with:
+          gradle-version: '9.6.0'
+      - name: Unit tests
+        run: bash .github/scripts/gradle-ci.sh tests :core:test
+      - name: Live YouTube audio-source smoke test
+        if: (github.event_name == 'workflow_dispatch' && inputs.live_source_smoke) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[live-source-smoke]'))
+        continue-on-error: true
+        run: bash .github/scripts/gradle-ci.sh youtube-source-smoke :core:sourceSmokeTest -PsourceSmokeUrl=https://www.youtube.com/watch?v=dQw4w9WgXcQ
+      - name: Live SoundCloud audio-source smoke test
+        if: (github.event_name == 'workflow_dispatch' && inputs.live_source_smoke) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[live-source-smoke]'))
+        continue-on-error: true
+        run: bash .github/scripts/gradle-ci.sh soundcloud-source-smoke :core:sourceSmokeTest -PsourceSmokeUrl=https://soundcloud.com/joakimkarud/dizzy
+      - name: Build server jars
+        id: build
+        if: ${{ !cancelled() }}
+        run: bash .github/scripts/gradle-ci.sh build :fabric:build :paper:build
+      - name: Verify server JAR integrity and platform metadata
+        if: steps.build.outcome == 'success'
+        run: |
+          python3 - <<'PY'
+          import hashlib, io, json, os, pathlib, zipfile
+
+          def verify():
+            fabric = pathlib.Path('fabric/build/libs/voice-music-fabric-0.1.0-SNAPSHOT.jar')
+            paper = pathlib.Path('paper/build/libs/voice-music-paper-0.1.0-SNAPSHOT.jar')
+            for jar in (fabric, paper):
+                assert jar.is_file(), f'missing JAR: {jar}'
+                size = jar.stat().st_size
+                assert size > 16_000, f'unexpectedly small JAR: {jar} ({size} bytes)'
+                print(f'::notice title=Built server JAR::{jar}: {size:,} bytes')
+                with zipfile.ZipFile(jar) as archive:
+                    assert archive.testzip() is None, f'CRC error in {jar}'
+                digest = hashlib.sha256(jar.read_bytes()).hexdigest()
+                with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+                    summary.write(f'- `{jar}` — {jar.stat().st_size:,} bytes, SHA-256 `{digest}`\n')
+
+            with zipfile.ZipFile(fabric) as archive:
+                names = set(archive.namelist())
+                mod = json.loads(archive.read('fabric.mod.json'))
+                assert mod['environment'] == 'server'
+                assert 'voicechat' in mod['entrypoints']
+                assert 'dev/arena/voicemusic/fabric/VoiceMusicFabric.class' in names
+                nested = [name for name in names if name.startswith('META-INF/jars/') and name.endswith('.jar')]
+                assert nested, 'Fabric core/dependencies were not bundled'
+                nested_names = set()
+                for name in nested:
+                    with zipfile.ZipFile(io.BytesIO(archive.read(name))) as dependency:
+                        nested_names.update(dependency.namelist())
+                assert 'dev/arena/voicemusic/audio/MusicRuntime.class' in nested_names
+
+            with zipfile.ZipFile(paper) as archive:
+                names = set(archive.namelist())
+                descriptor = archive.read('plugin.yml').decode()
+                assert 'main: dev.arena.voicemusic.paper.VoiceMusicPaper' in descriptor
+                assert 'depend: [voicechat]' in descriptor
+                assert 'dev/arena/voicemusic/paper/VoiceMusicPaper.class' in names
+                assert 'dev/arena/voicemusic/audio/MusicRuntime.class' in names
+                assert any(name.startswith('dev/arena/voicemusic/internal/lavaplayer/') for name in names)
+
+          try:
+              verify()
+          except Exception as error:
+              print(f"::error title=Server JAR validation::{type(error).__name__}: {error}")
+              raise
+          PY
+      - name: Upload server JARs
+        if: success()
+        uses: actions/upload-artifact@v6
+        with:
+          name: voice-music-server-jars
+          path: |
+            fabric/build/libs/voice-music-fabric-0.1.0-SNAPSHOT.jar
+            paper/build/libs/voice-music-paper-0.1.0-SNAPSHOT.jar
+          if-no-files-found: error
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: voice-music-diagnostics
+          path: ci-logs/*.log
+          if-no-files-found: ignore

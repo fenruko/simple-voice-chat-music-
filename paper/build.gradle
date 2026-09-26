@@ -1,0 +1,51 @@
+plugins {
+    id 'java'
+    id 'com.gradleup.shadow'
+}
+
+base { archivesName = 'voice-music-paper' }
+
+java { toolchain.languageVersion = JavaLanguageVersion.of(25); withSourcesJar() }
+
+repositories {
+    mavenCentral()
+    maven { url = 'https://maven.maxhenkel.de/repository/public' }
+    maven { url = 'https://maven.lavalink.dev/releases' }
+    maven { url = 'https://repo.papermc.io/repository/maven-public/' }
+}
+
+dependencies {
+    compileOnly 'io.papermc.paper:paper-api:26.3.build.+'
+    compileOnly "de.maxhenkel.voicechat:voicechat-api:${voicechat_api_version}"
+    implementation project(':core')
+    implementation("dev.arbjerg:lavaplayer:${lavaplayer_version}") {
+        exclude group: 'org.slf4j', module: 'slf4j-api' // use Paper's SLF4J provider
+    }
+    implementation "dev.lavalink.youtube:v2:${youtube_source_version}"
+    implementation 'com.google.code.gson:gson:2.13.2'
+}
+
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('plugin.yml') { expand version: project.version }
+}
+
+tasks.withType(JavaCompile).configureEach { options.release = 25; options.encoding = 'UTF-8' }
+
+shadowJar {
+    archiveClassifier = ''
+    relocate 'com.sedmelluq.discord.lavaplayer', 'dev.arena.voicemusic.internal.lavaplayer'
+    relocate 'dev.lavalink.youtube', 'dev.arena.voicemusic.internal.youtube'
+    relocate 'org.apache', 'dev.arena.voicemusic.internal.apache'
+    relocate 'com.google.gson', 'dev.arena.voicemusic.internal.gson'
+    relocate 'org.mozilla', 'dev.arena.voicemusic.internal.mozilla'
+    relocate 'com.grack', 'dev.arena.voicemusic.internal.nanojson'
+    relocate 'com.fasterxml', 'dev.arena.voicemusic.internal.jackson'
+    relocate 'org.jsoup', 'dev.arena.voicemusic.internal.jsoup'
+    relocate 'org.json', 'dev.arena.voicemusic.internal.json'
+    relocate 'net.iharder', 'dev.arena.voicemusic.internal.base64'
+    mergeServiceFiles()
+}
+
+jar { archiveClassifier = 'plain' }
+assemble.dependsOn shadowJar
