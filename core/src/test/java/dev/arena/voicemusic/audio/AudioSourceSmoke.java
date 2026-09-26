@@ -29,7 +29,12 @@ public final class AudioSourceSmoke {
                 }
                 @Override public void noMatches() { loaded.completeExceptionally(new IllegalStateException("No playable source found")); }
                 @Override public void loadFailed(FriendlyException exception) {
-                    loaded.completeExceptionally(new IllegalStateException("Source load failed: " + exception.severity + " (" + exception.getClass().getSimpleName() + ")"));
+                    Throwable cause = exception.getCause() == null ? exception : exception.getCause();
+                    String detail = cause.getClass().getSimpleName() + ": " + String.valueOf(cause.getMessage());
+                    detail = detail.replaceAll("https?://\\S+", "[redacted-url]").replaceAll("[\\r\\n]", " ");
+                    if (detail.length() > 240) detail = detail.substring(0, 240);
+                    System.err.println("::error title=Live source load failed::" + exception.severity + " — " + detail);
+                    loaded.completeExceptionally(new IllegalStateException("Source load failed: " + exception.severity + " (" + detail + ")"));
                 }
             });
 
