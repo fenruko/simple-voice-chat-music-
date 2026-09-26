@@ -1,0 +1,47 @@
+name: Verify
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: gradle
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.6.0'
+      - name: Unit tests
+        run: gradle :core:test
+      - name: Build server jars
+        run: gradle :fabric:build :paper:build
+      - name: Verify Fabric metadata and Paper descriptor
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, zipfile
+          f = pathlib.Path('fabric/build/libs/voice-music-fabric-0.1.0-SNAPSHOT.jar')
+          assert f.exists(), 'Fabric jar missing'
+          with zipfile.ZipFile(f) as z:
+              mod = json.loads(z.read('fabric.mod.json'))
+              assert mod['environment'] == 'server'
+              assert 'voicechat' in mod['entrypoints']
+          p = pathlib.Path('paper/build/libs/voice-music-paper-0.1.0-SNAPSHOT.jar')
+          assert p.exists(), 'Paper jar missing'
+          with zipfile.ZipFile(p) as z:
+              descriptor = z.read('plugin.yml').decode()
+              assert 'main: dev.arena.voicemusic.paper.VoiceMusicPaper' in descriptor
+              assert 'depend: [voicechat]' in descriptor
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: voice-music-server-jars
+          path: |
+            fabric/build/libs/voice-music-fabric-*.jar
+            paper/build/libs/voice-music-paper-0.1.0-SNAPSHOT.jar

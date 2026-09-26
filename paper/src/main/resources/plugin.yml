@@ -1,0 +1,16 @@
+name: VoiceMusic
+version: '${version}'
+main: dev.arena.voicemusic.paper.VoiceMusicPaper
+api-version: '26.3'
+load: POSTWORLD
+depend: [voicechat]
+commands:
+  music:
+    description: Play music to your current Simple Voice Chat group.
+    usage: /music <play|search|queue|skip|pause|resume|stop|now|help>
+    permission: voicemusic.use
+permissions:
+  voicemusic.use:
+    default: true
+  voicemusic.admin:
+    default: op
