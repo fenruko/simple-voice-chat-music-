@@ -27,7 +27,7 @@ jobs:
       - name: Unit tests
         run: bash .github/scripts/gradle-ci.sh tests :core:test
       - name: Live YouTube audio-source smoke test
-        if: github.event_name == 'workflow_dispatch' && inputs.live_source_smoke
+        if: (github.event_name == 'workflow_dispatch' && inputs.live_source_smoke) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[live-source-smoke]'))
         run: bash .github/scripts/gradle-ci.sh source-smoke :core:sourceSmokeTest -PsourceSmokeUrl=https://www.youtube.com/watch?v=BaW_jenozKc
       - name: Build server jars
         id: build
