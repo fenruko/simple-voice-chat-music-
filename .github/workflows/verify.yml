@@ -26,6 +26,12 @@ jobs:
           gradle-version: '9.6.0'
       - name: Unit tests
         run: bash .github/scripts/gradle-ci.sh tests :core:test
+      - name: Server behaviour simulation
+        env:
+          PYTHONUTF8: 1
+        run: |
+          python3 -V
+          python3 simulation/run_tests.py
       - name: Live YouTube audio-source smoke test
         if: (github.event_name == 'workflow_dispatch' && inputs.live_source_smoke) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[live-source-smoke]'))
         continue-on-error: true
@@ -71,6 +77,27 @@ jobs:
                     with zipfile.ZipFile(io.BytesIO(archive.read(name))) as dependency:
                         nested_names.update(dependency.namelist())
                 assert 'dev/arena/voicemusic/audio/MusicRuntime.class' in nested_names
+                # Loom's `include` is non-transitive, so nesting lavaplayer alone is not
+                # enough: DefaultAudioPlayerManager's constructor needs DaemonThreadFactory
+                # from dev.arbjerg:lava-common. Without these the server hits
+                # NoClassDefFoundError during mod init and /music never exists.
+                # Match on class suffix because shadowJar relocates packages on the Paper
+                # side (relocating com.grack -> ...internal.nanojson turns
+                # com.grack.nanojson.JsonParser into ...internal.nanojson.nanojson.JsonParser).
+                audio_engine = {
+                    'dev.arbjerg:lavaplayer': ['lavaplayer/player/DefaultAudioPlayerManager.class'],
+                    'dev.arbjerg:lava-common': ['com/sedmelluq/lava/common/tools/DaemonThreadFactory.class'],
+                    'org.mozilla:rhino-engine': ['mozilla/javascript/Script.class',
+                                                 'mozilla/javascript/Context.class',
+                                                 'mozilla/javascript/engine/RhinoScriptEngineFactory.class'],
+                    'com.grack:nanojson': ['nanojson/JsonParser.class'],
+                    'org.jsoup:jsoup': ['jsoup/nodes/Element.class'],
+                    'org.apache.httpcomponents:httpclient': ['apache/http/client/HttpClient.class'],
+                    'com.fasterxml.jackson.core:jackson-core': ['jackson/core/JsonFactory.class'],
+                }
+                missing = [lib for lib, suffixes in audio_engine.items()
+                           if not any(entry.endswith(suffix) for entry in nested_names for suffix in suffixes)]
+                assert not missing, f'Fabric JAR is missing nested audio engine libraries: {missing}'
 
             with zipfile.ZipFile(paper) as archive:
                 names = set(archive.namelist())
@@ -80,6 +107,14 @@ jobs:
                 assert 'dev/arena/voicemusic/paper/VoiceMusicPaper.class' in names
                 assert 'dev/arena/voicemusic/audio/MusicRuntime.class' in names
                 assert any(name.startswith('dev/arena/voicemusic/internal/lavaplayer/') for name in names)
+                paper_missing = [lib for lib, suffixes in audio_engine.items()
+                                 if not any(name.endswith(suffix) for name in names for suffix in suffixes)]
+                if paper_missing:
+                    # Diagnostics: show the shipped class entries so the failure is actionable.
+                    for needle in ('jackson', 'fasterxml', 'nanojson', 'mozilla', 'lavaplayer/player', 'jsoup', 'apache/http'):
+                        hits = sorted(n for n in names if needle in n and n.endswith('.class'))
+                        print(f'::notice title=Paper JAR diagnostics::{needle} -> {len(hits)} classes, first 6: {hits[:6]}')
+                assert not paper_missing, f'Paper JAR is missing audio engine classes: {paper_missing}'
 
           try:
               verify()

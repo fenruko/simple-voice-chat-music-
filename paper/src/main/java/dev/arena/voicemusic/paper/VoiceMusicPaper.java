@@ -20,29 +20,35 @@ public final class VoiceMusicPaper extends JavaPlugin implements TabExecutor {
     private PaperVoicePlugin voicePlugin;
 
     @Override public void onEnable() {
+        // Register the command first. Disabling the plugin on an audio engine failure
+        // used to remove /music entirely, which is indistinguishable from "the plugin is
+        // not installed at all". The command now stays available and reports why it
+        // cannot play instead of silently vanishing.
+        var command = getCommand("music");
+        if (command == null) throw new IllegalStateException("plugin.yml is missing the music command");
+        command.setExecutor(this);
+        command.setTabCompleter(this);
+
         try {
             MusicConfig config = MusicConfig.load(getDataFolder().toPath().resolve("voice-music.properties"));
             var configFile = getDataFolder().toPath().resolve("voice-music.properties");
             runtime = new MusicRuntime(config, () -> Bukkit.getOnlinePlayers().stream().map(Player::getUniqueId).toList(),
                     message -> getLogger().info(message), token -> { try { MusicConfig.saveYoutubeRefreshToken(configFile, token); } catch (IOException ex) { throw new java.io.UncheckedIOException(ex); } });
         } catch (IOException | RuntimeException ex) {
-            getLogger().severe("Could not load Voice Music configuration/audio engine: " + ex.getMessage());
-            getServer().getPluginManager().disablePlugin(this);
+            getLogger().log(java.util.logging.Level.SEVERE, "Could not load Voice Music configuration/audio engine. "
+                    + "/music stays registered but will report that the audio engine is unavailable.", ex);
             return;
         }
         BukkitVoicechatService service = getServer().getServicesManager().load(BukkitVoicechatService.class);
         if (service == null) {
-            getLogger().severe("Simple Voice Chat API service not found; disabling Voice Music.");
-            runtime.close();
-            getServer().getPluginManager().disablePlugin(this);
+            getLogger().severe("Simple Voice Chat API service not found; /music stays registered but cannot play.");
+            MusicRuntime engine = runtime;
+            runtime = null;
+            if (engine != null) engine.close();
             return;
         }
         voicePlugin = new PaperVoicePlugin(runtime);
         service.registerPlugin(voicePlugin);
-        var command = getCommand("music");
-        if (command == null) throw new IllegalStateException("plugin.yml is missing the music command");
-        command.setExecutor(this);
-        command.setTabCompleter(this);
         getLogger().info("Voice Music (Paper) enabled.");
     }
 
@@ -52,7 +58,13 @@ public final class VoiceMusicPaper extends JavaPlugin implements TabExecutor {
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player player)) { sender.sendMessage("Only players can use music commands."); return true; }
+        // /music and /music help must answer even when the engine is down: that is the
+        // only way a player can tell "broken" from "not installed".
         if (args.length == 0 || args[0].equalsIgnoreCase("help")) { help(player); return true; }
+        if (runtime == null) {
+            player.sendMessage(Component.text("Music is not ready: the audio engine failed to start. Check the server log for a Voice Music error."));
+            return true;
+        }
         String sub = args[0].toLowerCase(java.util.Locale.ROOT);
         if (sub.equals("play") || sub.equals("search")) {
             if (args.length < 2) { player.sendMessage(Component.text("Usage: /music play <song, SoundCloud URL, Spotify URL, or audio URL>")); return true; }

@@ -27,22 +27,10 @@ public final class VoiceMusicFabric implements ModInitializer {
     static volatile MusicRuntime RUNTIME;
 
     @Override public void onInitialize() {
-        try {
-            MusicConfig config = MusicConfig.load(FabricLoader.getInstance().getConfigDir().resolve("voice-music.properties"));
-            var configFile = FabricLoader.getInstance().getConfigDir().resolve("voice-music.properties");
-            RUNTIME = new MusicRuntime(config, () -> {
-                MinecraftServer server = SERVER.get();
-                return server == null ? List.of() : server.getPlayerList().getPlayers().stream().map(ServerPlayer::getUUID).toList();
-            }, LOGGER::info, token -> { try { MusicConfig.saveYoutubeRefreshToken(configFile, token); } catch (IOException ex) { throw new java.io.UncheckedIOException(ex); } });
-        } catch (IOException | RuntimeException ex) {
-            throw new IllegalStateException("Voice Music could not load config or initialize audio sources", ex);
-        }
-        ServerLifecycleEvents.SERVER_STARTED.register(SERVER::set);
-        ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
-            SERVER.compareAndSet(server, null);
-            MusicRuntime runtime = RUNTIME;
-            if (runtime != null) runtime.close();
-        });
+        // Register the command tree and the lifecycle hooks BEFORE anything that can
+        // fail. An exception escaping onInitialize() aborts Fabric Loader's mod init
+        // stage and takes the whole server down with it, leaving no command behind,
+        // so /music is wired up first and the audio engine afterwards.
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) -> {
             dispatcher.register(Commands.literal("music")
                     .executes(ctx -> { help(ctx.getSource()); return 1; })
@@ -59,7 +47,27 @@ public final class VoiceMusicFabric implements ModInitializer {
                     .then(Commands.literal("gui").executes(ctx -> { controls(ctx.getSource()); return 1; }))
                     .then(Commands.literal("help").executes(ctx -> { help(ctx.getSource()); return 1; })));
         });
-        LOGGER.info("Voice Music (Fabric server) initialized.");
+        ServerLifecycleEvents.SERVER_STARTED.register(SERVER::set);
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
+            SERVER.compareAndSet(server, null);
+            MusicRuntime runtime = RUNTIME;
+            if (runtime != null) runtime.close();
+        });
+        try {
+            MusicConfig config = MusicConfig.load(FabricLoader.getInstance().getConfigDir().resolve("voice-music.properties"));
+            var configFile = FabricLoader.getInstance().getConfigDir().resolve("voice-music.properties");
+            RUNTIME = new MusicRuntime(config, () -> {
+                MinecraftServer server = SERVER.get();
+                return server == null ? List.of() : server.getPlayerList().getPlayers().stream().map(ServerPlayer::getUUID).toList();
+            }, LOGGER::info, token -> { try { MusicConfig.saveYoutubeRefreshToken(configFile, token); } catch (IOException ex) { throw new java.io.UncheckedIOException(ex); } });
+            LOGGER.info("Voice Music (Fabric server) initialized.");
+        } catch (IOException | RuntimeException ex) {
+            // Never rethrow: /music must stay registered so it can report the problem
+            // instead of the mod simply being absent.
+            RUNTIME = null;
+            LOGGER.error("Voice Music could not load its configuration or initialize the audio engine. "
+                    + "/music is registered but reports \"Music is not ready.\" until this is fixed.", ex);
+        }
     }
 
     private static int play(net.minecraft.commands.CommandSourceStack source, String query) throws com.mojang.brigadier.exceptions.CommandSyntaxException {
