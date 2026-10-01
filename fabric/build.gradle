@@ -16,6 +16,34 @@ loom {
     mods { voicemusic { sourceSet sourceSets.main } }
 }
 
+// ---------------------------------------------------------------------------
+// Bundling the audio engine
+//
+// Fabric Loader only puts jars on a mod's classpath that the mod ships itself, so
+// everything the audio engine needs at runtime has to be nested into this jar.
+//
+// Loom's `include` configuration is resolved NON-transitively (see
+// IncludeConfigurations#addNonTransitiveDependencies in fabric-loom), which means
+// `include "dev.arbjerg:lavaplayer:x"` nests only lavaplayer's own jar and leaves its
+// runtime dependencies behind. That is exactly what happened here before: lavaplayer's
+// main module declares `api(projects.common)`, and dev.arbjerg:lava-common is what
+// contains com.sedmelluq.lava.common.tools.DaemonThreadFactory - a class
+// DefaultAudioPlayerManager's constructor instantiates. On a real Fabric server the
+// mod therefore died with
+//   NoClassDefFoundError: com/sedmelluq/lava/common/tools/DaemonThreadFactory
+// before a single command was registered. The same gap hides Rhino, NanoJSON, jsoup,
+// commons-io, httpclient, Jackson, lavaplayer-natives and friends.
+//
+// Resolving the runtime classpath once and nesting every jar it produced keeps the
+// nested set complete and version-exact without hand-maintaining a dependency list.
+// ---------------------------------------------------------------------------
+configurations {
+    bundledLibraries {
+        canBeConsumed = false
+        canBeResolved = true
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
@@ -24,21 +52,50 @@ dependencies {
     runtimeOnly "de.maxhenkel.voicechat:voicechat-api:${voicechat_api_version}:fabric-stub"
     implementation project(':core')
     include project(':core')
-    include("dev.arbjerg:lavaplayer:${lavaplayer_version}") {
-        exclude group: 'org.slf4j', module: 'slf4j-api'
-    }
-    include "dev.lavalink.youtube:v2:${youtube_source_version}"
+    bundledLibraries "dev.arbjerg:lavaplayer:${lavaplayer_version}"
+    bundledLibraries "dev.lavalink.youtube:v2:${youtube_source_version}"
     include 'com.google.code.gson:gson:2.13.2'
-    runtimeOnly "maven.modrinth:simple-voice-chat:fabric-2.6.23+26.3"
+    runtimeOnly "maven.modrinth:simple-voice-chat:fabric-${simple_voice_chat_version}"
 }
+
+// Provided by the Minecraft server itself, so nesting them would only risk conflicts.
+def serverProvidedLibraries = ['org.slf4j:slf4j-api']
+
+afterEvaluate {
+    configurations.bundledLibraries.incoming.artifacts.get().each { artifact ->
+        def module = artifact.moduleVersion.id
+        if (serverProvidedLibraries.contains("${module.group}:${module.name}")) {
+            return
+        }
+        dependencies.add('include', "${module.group}:${module.name}:${module.version}")
+    }
+}
+
+tasks.register('verifyBundledLibraries') {
+    group = 'verification'
+    description = 'Fails when the audio engine runtime classpath is not fully nested into the mod jar.'
+    doLast {
+        def expected = configurations.bundledLibraries.incoming.artifacts.get()
+                .findAll { !serverProvidedLibraries.contains("${it.moduleVersion.id.group}:${it.moduleVersion.id.name}") }
+                .collect { "${it.moduleVersion.id.group}:${it.moduleVersion.id.name}" }
+        def nested = configurations.include.allDependencies.collect { "${it.group}:${it.name}" }
+        def missing = expected - nested
+        if (!missing.isEmpty()) {
+            throw new GradleException("Audio engine libraries are not nested into the mod jar: ${missing}. " +
+                    "Fabric servers will fail with NoClassDefFoundError at runtime.")
+        }
+    }
+}
+tasks.named('check') { dependsOn 'verifyBundledLibraries' }
 
 processResources {
     inputs.property 'version', project.version
     inputs.property 'minecraft_version', minecraft_version
-    inputs.property 'loader_version', fabric_loader_version
+    inputs.property 'minecraft_dependency', minecraft_dependency
+    inputs.property 'loader_dependency', loader_dependency
     filesMatching('fabric.mod.json') {
         expand version: project.version, minecraft_version: minecraft_version,
-                loader_version: fabric_loader_version, voicechat_api_version: voicechat_api_version
+                minecraft_dependency: minecraft_dependency, loader_dependency: loader_dependency
     }
 }
 
