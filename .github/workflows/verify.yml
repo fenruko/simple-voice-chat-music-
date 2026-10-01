@@ -109,6 +109,11 @@ jobs:
                 assert any(name.startswith('dev/arena/voicemusic/internal/lavaplayer/') for name in names)
                 paper_missing = [lib for lib, suffixes in audio_engine.items()
                                  if not any(name.endswith(suffix) for name in names for suffix in suffixes)]
+                if paper_missing:
+                    # Diagnostics: show what actually shipped so the failure is actionable.
+                    for needle in ('jackson', 'fasterxml', 'nanojson', 'mozilla', 'lavaplayer/player'):
+                        hits = sorted(n for n in names if needle in n)[:5]
+                        print(f'::notice title=Paper JAR diagnostics::{needle} -> {hits}')
                 assert not paper_missing, f'Paper JAR is missing audio engine classes: {paper_missing}'
 
           try:
