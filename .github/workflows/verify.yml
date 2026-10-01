@@ -93,7 +93,7 @@ jobs:
                     'com.grack:nanojson': ['nanojson/JsonParser.class'],
                     'org.jsoup:jsoup': ['jsoup/nodes/Element.class'],
                     'org.apache.httpcomponents:httpclient': ['apache/http/client/HttpClient.class'],
-                    'com.fasterxml.jackson.core:jackson-core': ['fasterxml/jackson/core/JsonFactory.class'],
+                    'com.fasterxml.jackson.core:jackson-core': ['jackson/core/JsonFactory.class'],
                 }
                 missing = [lib for lib, suffixes in audio_engine.items()
                            if not any(entry.endswith(suffix) for entry in nested_names for suffix in suffixes)]
