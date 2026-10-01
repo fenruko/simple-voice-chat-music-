@@ -1,6 +1,9 @@
 """Aggressive simulation of a live server: Paper + Fabric, with and without the defects."""
 import os, sys, shutil, time, uuid, json, traceback
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Root of the repository this simulation ships in - scenarios 9 and 11 read the real
+# build files, so the path has to be derived from __file__, never hardcoded.
+REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")) + "/"
 import fakes
 from fakes import (PaperServer, FabricServer, VoicechatServer, Group, ServerPlayer,
                    VoicechatConnection, StaticAudioChannel, AudioPlaylist, AudioTrack)
@@ -410,7 +413,7 @@ check("Paper: /music help still answers", any("Use /music play" in m for m in cm
 
 print("\n=== SCENARIO 9: the real fabric.mod.json in the repo, against real SVC builds ===")
 import json as _json, re as _re
-_raw = open("/home/user/simple-voice-chat-music-/fabric/src/main/resources/fabric.mod.json").read()
+_raw = open(REPO + "fabric/src/main/resources/fabric.mod.json").read()
 _vars = dict(
     version="0.1.0-SNAPSHOT",
     minecraft_version="26.3",
@@ -454,7 +457,6 @@ check("Paper: /music play explains SVC is unavailable",
 # =====================================================================
 print("\n=== SCENARIO 11: regression guards on the real build files ===")
 import re as _re2
-REPO = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")) + "/"
 fgradle = open(REPO + "fabric/build.gradle").read()
 pgradle = open(REPO + "paper/build.gradle").read()
 fj = open(REPO + "fabric/src/main/java/dev/arena/voicemusic/fabric/VoiceMusicFabric.java").read()

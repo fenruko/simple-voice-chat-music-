@@ -27,7 +27,11 @@ jobs:
       - name: Unit tests
         run: bash .github/scripts/gradle-ci.sh tests :core:test
       - name: Server behaviour simulation
-        run: python3 simulation/run_tests.py
+        env:
+          PYTHONUTF8: 1
+        run: |
+          python3 -V
+          python3 simulation/run_tests.py
       - name: Live YouTube audio-source smoke test
         if: (github.event_name == 'workflow_dispatch' && inputs.live_source_smoke) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[live-source-smoke]'))
         continue-on-error: true
